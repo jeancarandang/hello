@@ -1,0 +1,19 @@
+apiVersion : apps/v1
+kind: Deployment
+metadata:
+  name: "testkubernetes-402b"
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: "testkubernetes-402b"
+  template:
+    metadata:
+      labels:
+        app: "testkubernetes-402b"
+    spec:
+      containers:
+        - name: "testkubernetes-402b"
+          image: "testjean.azurecr.io/testkubernetes"
+          ports:
+          - containerPort: 80
