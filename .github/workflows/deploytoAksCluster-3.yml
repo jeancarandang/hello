@@ -1,0 +1,50 @@
+on: [push]
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@master
+    
+    - uses: azure/docker-login@v1
+      with:
+        login-server: testjean.azurecr.io
+        username: ${{ secrets.acr_testjean_username }}
+        password: ${{ secrets.acr_testjean_password }}
+    
+    - name: Build and push image to ACR
+      id: build-image
+      run: |
+        docker build "$GITHUB_WORKSPACE/" -f  "Dockerfile" -t testjean.azurecr.io/testkubernetes:${{ github.sha }} --label dockerfile-path=Dockerfile
+        docker push testjean.azurecr.io/testkubernetes:${{ github.sha }}
+    
+    - uses: azure/k8s-set-context@v1
+      with:
+         kubeconfig: ${{ secrets.aks_testkubernetes_kubeConfig }}
+      id: login
+    
+    - name: Create namespace
+      run: |
+        namespacePresent=`kubectl get namespace | grep testkubernetesa5b8 | wc -l`
+        if [ $namespacePresent -eq 0 ]
+        then
+            echo `kubectl create namespace testkubernetesa5b8`
+        fi
+
+    - uses: azure/k8s-create-secret@v1
+      with:
+        namespace: testkubernetesa5b8
+        container-registry-url: testjean.azurecr.io
+        container-registry-username: ${{ secrets.acr_testjean_username }}
+        container-registry-password: ${{ secrets.acr_testjean_password }}
+        secret-name: testkubernetdockerauth
+       
+    - uses: azure/k8s-deploy@v1.2
+      with:
+        namespace: testkubernetesa5b8
+        manifests: |
+          manifests/deployment-3.yml
+          manifests/service-3.yml
+        images: |
+          testjean.azurecr.io/testkubernetes:${{ github.sha }}
+        imagepullsecrets: |
+          testkubernetdockerauth
